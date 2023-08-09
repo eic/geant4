@@ -1,0 +1,51 @@
+# - G4phys_ctor_east module build definition
+
+# Define the Geant4 Module.
+geant4_add_module(G4phys_ctor_east
+  PUBLIC_HEADERS
+    eASTAntiBaryonPhysics.hh
+    eASTGammaLeptoNuclearPhysics.hh
+    eASTHyperonPhysics.hh
+    eASTIonPhysics.hh
+    eASTKaonPhysics.hh
+    eASTNeutronPhysics.hh
+    eASTPionPhysics.hh
+    eASTProtonPhysics.hh
+  SOURCES
+    eASTAntiBaryonPhysics.cc
+    eASTGammaLeptoNuclearPhysics.cc
+    eASTHyperonPhysics.cc
+    eASTIonPhysics.cc
+    eASTKaonPhysics.cc
+    eASTNeutronPhysics.cc
+    eASTPionPhysics.cc
+    eASTProtonPhysics.cc)
+
+geant4_module_link_libraries(G4phys_ctor_east
+  PUBLIC
+    G4globman
+    G4hadronic_mgt
+    G4hadronic_xsect
+    G4run
+  PRIVATE
+    G4baryons
+    G4had_fission
+    G4had_par_hp
+    G4had_preequ_exciton
+    G4had_string_diff
+    G4had_string_frag
+    G4had_theo_max
+    G4hadronic_abla
+    G4hadronic_bert_cascade
+    G4hadronic_binary
+    G4hadronic_deex_photon_evaporation
+    G4hadronic_proc
+    G4hadronic_util
+    G4ions
+    G4mesons
+    G4partman
+    G4phys_builders
+    G4phys_ctor_factory
+    G4physlist_util
+    G4procman
+    G4shortlived)

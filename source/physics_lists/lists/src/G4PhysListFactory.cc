@@ -40,6 +40,7 @@
 //
 
 #include "G4PhysListFactory.hh"
+#include "eASTPhysicsList.hh"
 #include "FTFP_BERT.hh"
 #include "FTFP_BERT_HP.hh"
 #include "FTFP_BERT_TRV.hh"
@@ -82,8 +83,9 @@
 G4PhysListFactory::G4PhysListFactory(G4int ver) 
   : defName("FTFP_BERT"),verbose(ver),theMessenger(nullptr)
 {
-  nlists_hadr = 33;
-  G4String ss[33] = {
+  nlists_hadr = 34;
+  G4String ss[34] = {
+    "eASTPhysicsList",
     "FTFP_BERT","FTFP_BERT_TRV","FTFP_BERT_ATL","FTFP_BERT_HP","FTFQGSP_BERT",
     "FTFP_INCLXX","FTFP_INCLXX_HP","FTF_BIC", "LBE","QBBC",
     "QGSP_BERT","QGSP_BERT_HP","QGSP_BIC","QGSP_BIC_HP","QGSP_BIC_AllHP",
@@ -160,7 +162,8 @@ G4PhysListFactory::GetReferencePhysList(const G4String& name)
 	   << em_name << ">  EMoption= " << em_opt << G4endl;
   }
   G4VModularPhysicsList* p = nullptr;
-  if(had_name == "FTFP_BERT")           {p = new FTFP_BERT(verbose);}
+  if(had_name == "eASTPhysicsList")     {p = new eASTPhysicsList(verbose);}
+  else if(had_name == "FTFP_BERT")      {p = new FTFP_BERT(verbose);}
   else if(had_name == "FTFP_BERT_HP")   {p = new FTFP_BERT_HP(verbose);}
   else if(had_name == "FTFP_BERT_TRV")  {p = new FTFP_BERT_TRV(verbose);}
   else if(had_name == "FTFP_BERT_ATL")  {p = new FTFP_BERT_ATL(verbose);}
