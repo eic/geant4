@@ -36,6 +36,9 @@
 
 #include "G4PhysListStamper.hh"
 
+#include "eASTPhysicsList.hh"
+G4_DECLARE_PHYSLIST_FACTORY(eASTPhysicsList);
+
 #include "FTFP_BERT.hh"
 G4_DECLARE_PHYSLIST_FACTORY(FTFP_BERT);
 
