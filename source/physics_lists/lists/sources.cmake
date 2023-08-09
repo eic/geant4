@@ -3,6 +3,8 @@
 # Define the Geant4 Module.
 geant4_add_module(G4phys_lists
   PUBLIC_HEADERS
+    eASTPhysicsList.hh
+    eASTPhysicsListMessenger.hh
     FTF_BIC.hh
     FTFP_BERT.hh
     FTFP_BERT_HP.hh
@@ -38,6 +40,8 @@ geant4_add_module(G4phys_lists
     G4PhysListFactoryAlt.hh
     G4RegisterPhysLists.icc
   SOURCES
+    eASTPhysicsList.cc
+    eASTPhysicsListMessenger.cc
     FTF_BIC.cc
     FTFP_BERT_ATL.cc
     FTFP_BERT.cc
@@ -69,6 +73,7 @@ geant4_module_link_libraries(G4phys_lists
     G4materials
     G4partman
     G4phys_ctor_decay
+    G4phys_ctor_east
     G4phys_ctor_em
     G4phys_ctor_factory
     G4phys_ctor_glnuclear
