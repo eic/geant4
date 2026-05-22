@@ -71,6 +71,11 @@ class G4ScopedProfiling
     static G4ProfilingVerbosity verbosity();
     static void SetVerbosity(G4ProfilingVerbosity value);
 
+    // Emit a flow-source instant event (call inside a g4process span for each secondary).
+    static void EmitFlowSource(const void* id);
+    // Emit a flow-sink instant event (call inside a g4track span for secondary tracks).
+    static void EmitFlowSink(const void* id);
+
     explicit G4ScopedProfiling(G4ScopedProfilingInput const& input)
       : activated_{false}
     {
@@ -130,6 +135,8 @@ class G4ScopedProfiling
     static bool enabled() { return false; }
     static G4ProfilingVerbosity verbosity() { return G4ProfilingVerbosity::kCoarse; }
     static void SetVerbosity(G4ProfilingVerbosity) {}
+    static void EmitFlowSource(const void*) {}
+    static void EmitFlowSink(const void*) {}
     explicit G4ScopedProfiling(G4ScopedProfilingInput const&) {}
     ~G4ScopedProfiling() = default;
 };

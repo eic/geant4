@@ -702,6 +702,10 @@ void G4SteppingManager::InvokeAtRestDoItProcs()
         fParticleChange->UpdateStepForAtRest(fStep);
 
         // Now Store the secondaries from ParticleChange to SecondaryList
+#ifdef GEANT4_USE_PROFILING
+        for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+          G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+#endif
         fN2ndariesAtRestDoIt += ProcessSecondariesFromParticleChange();
 
         // clear ParticleChange
@@ -753,6 +757,10 @@ void G4SteppingManager::InvokeAlongStepDoItProcs()
 #endif
 
     // Now Store the secondaries from ParticleChange to SecondaryList
+#ifdef GEANT4_USE_PROFILING
+    for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+      G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+#endif
     fN2ndariesAlongStepDoIt += ProcessSecondariesFromParticleChange();
 
     // Set the track status according to what the process defined
@@ -843,6 +851,10 @@ void G4SteppingManager::InvokePSDIP(size_t np)
   fStep->GetPostStepPoint()->SetSafety(CalculateSafety());
 
   // Now Store the secondaries from ParticleChange to SecondaryList
+#ifdef GEANT4_USE_PROFILING
+  for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+    G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+#endif
   fN2ndariesPostStepDoIt += ProcessSecondariesFromParticleChange();
 
   // Set the track status according to what the process defined

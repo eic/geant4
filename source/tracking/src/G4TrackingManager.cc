@@ -76,6 +76,8 @@ void G4TrackingManager::ProcessOneTrack(G4Track* apValueG4Track)
                                     .category="g4track",
                                     .trackID=fpTrack->GetTrackID(),
                                     .pdgID=fpTrack->GetDefinition()->GetPDGEncoding()});
+  if (fpTrack->GetParentID() != 0)
+    G4ScopedProfiling::EmitFlowSink(fpTrack);
 #endif
 
   // Clear secondary particle vector

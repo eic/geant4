@@ -174,3 +174,21 @@ void G4ScopedProfiling::Deactivate() noexcept
     TRACE_EVENT_END(g4navigation_category);
   }
 }
+
+// Emit a flow-source instant event inside a g4process span for a secondary track.
+// The pointer serves as the flow ID; use EmitFlowSink with the same pointer (the
+// G4Track*) at the start of the corresponding g4track span.
+void G4ScopedProfiling::EmitFlowSource(const void* id)
+{
+  using namespace G4Profiling::detail;
+  TRACE_EVENT_INSTANT(g4process_category, perfetto::StaticString{"secondary"},
+                      perfetto::Flow::FromPointer(const_cast<void*>(id)));
+}
+
+// Emit a flow-sink instant event inside a g4track span for a secondary track.
+void G4ScopedProfiling::EmitFlowSink(const void* id)
+{
+  using namespace G4Profiling::detail;
+  TRACE_EVENT_INSTANT(g4track_category, perfetto::StaticString{"from_parent"},
+                      perfetto::TerminatingFlow::FromPointer(const_cast<void*>(id)));
+}
