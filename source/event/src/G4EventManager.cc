@@ -47,6 +47,7 @@
 #include "G4AutoLock.hh"
 #ifdef GEANT4_USE_PROFILING
 #  include "G4Profiling/G4ScopedProfiling.hh"
+#  include "G4Profiling/G4ProfilingManager.hh"
 #endif
 
 namespace {
@@ -477,6 +478,9 @@ void G4EventManager::ProcessOneEvent(G4Event* anEvent)
 {
   trackIDCounter = 0;
   DoProcessing(anEvent);
+#ifdef GEANT4_USE_PROFILING
+  G4ProfilingManager::GetInstance().MaybeFlushAfterEvent();
+#endif
 }
 
 void G4EventManager::ProcessOneEvent(G4TrackVector* trackVector,

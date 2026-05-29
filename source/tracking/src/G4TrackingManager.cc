@@ -76,7 +76,10 @@ void G4TrackingManager::ProcessOneTrack(G4Track* apValueG4Track)
                                     .category="g4track",
                                     .trackID=fpTrack->GetTrackID(),
                                     .pdgID=fpTrack->GetDefinition()->GetPDGEncoding()});
-  if (fpTrack->GetParentID() != 0)
+  // Flow events (secondary→track connections) are only meaningful at kVerbose,
+  // where the corresponding g4process source spans also exist.
+  if (fpTrack->GetParentID() != 0 &&
+      G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose)
     G4ScopedProfiling::EmitFlowSink(fpTrack);
 #endif
 

@@ -108,10 +108,12 @@ std::string G4ProfilingManager::GetOutputFileName() const
 void G4ProfilingManager::StartTracing()
 {
   auto filename = this->GetOutputFileName();
-  G4TracingSession::Instance().Start(filename);
+  auto bufferSizeMB = bufferSizeMB_.load(std::memory_order_relaxed);
+  G4TracingSession::Instance().Start(filename, bufferSizeMB);
 
   G4AutoLock lock(&g4ProfilingManagerMutex);
   active_.store(G4TracingSession::Instance().IsActive(), std::memory_order_relaxed);
+  eventCounter_.store(0, std::memory_order_relaxed);
 }
 
 void G4ProfilingManager::StopTracing()
@@ -125,4 +127,41 @@ void G4ProfilingManager::StopTracing()
 void G4ProfilingManager::FlushTracing()
 {
   G4TracingSession::Instance().Flush();
+}
+
+std::size_t G4ProfilingManager::GetBufferSizeMB() const
+{
+  return bufferSizeMB_.load(std::memory_order_relaxed);
+}
+
+void G4ProfilingManager::SetBufferSizeMB(std::size_t mb)
+{
+  bufferSizeMB_.store(mb, std::memory_order_relaxed);
+}
+
+int G4ProfilingManager::GetFlushEveryNEvents() const
+{
+  return flushEveryNEvents_.load(std::memory_order_relaxed);
+}
+
+void G4ProfilingManager::SetFlushEveryNEvents(int n)
+{
+  flushEveryNEvents_.store(n, std::memory_order_relaxed);
+}
+
+void G4ProfilingManager::MaybeFlushAfterEvent()
+{
+  if (!IsEnabled()) return;
+  auto n = flushEveryNEvents_.load(std::memory_order_relaxed);
+  if (n <= 0) return;
+
+  // Atomic increment; exactly one thread that crosses a multiple of n will
+  // trigger the drain.  Other threads may emit events that straddle the
+  // session boundary — those spans may appear incomplete in the trace, which
+  // is acceptable for periodic drain mode.
+  auto count = ++eventCounter_;
+  if (count % n == 0)
+  {
+    G4TracingSession::Instance().Drain();
+  }
 }

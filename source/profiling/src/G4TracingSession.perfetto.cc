@@ -48,7 +48,7 @@ namespace
 G4Mutex g4TracingSessionMutex = G4MUTEX_INITIALIZER;
 std::once_flag g4PerfettoInitOnce;
 
-perfetto::TraceConfig ConfigureSession()
+perfetto::TraceConfig ConfigureSession(std::size_t bufferSizeMB)
 {
   perfetto::protos::gen::TrackEventConfig trackEventConfig;
   trackEventConfig.add_disabled_categories("*");
@@ -60,13 +60,16 @@ perfetto::TraceConfig ConfigureSession()
   trackEventConfig.add_enabled_categories(G4Profiling::detail::g4navigation_category);
 
   perfetto::TraceConfig config;
-  // Use a large staging buffer with write_into_file to stream events
-  // continuously to disk. The 512 MB staging buffer provides headroom for
-  // step-level multi-threaded traces; periodic flush avoids ring-buffer wraps.
-  config.add_buffers()->set_size_kb(512 * 1024);
-  config.set_write_into_file(true);
-  config.set_file_write_period_ms(250);
-  config.set_flush_period_ms(250);
+  // Use a large in-memory ring buffer and collect via ReadTraceBlocking()
+  // after StopBlocking(). This avoids the write_into_file streaming path where
+  // partial chunks from parked worker threads were being lost.
+  // Note: with string interning and step-level tracing, 10 events ≈ 1.8 GB.
+  // Use /profiling/perfetto/bufferSizeMB to tune; enable periodic draining via
+  // /profiling/perfetto/flushEveryNEvents to support runs over more events.
+  config.add_buffers()->set_size_kb(bufferSizeMB * 1024);
+  // Disable periodic incremental-state clears to keep all interned strings
+  // valid for the whole session (avoids trace-size blowup on FlushBlocking).
+  config.mutable_incremental_state_config()->set_clear_period_ms(0);
   auto* dataSource = config.add_data_sources()->mutable_config();
   dataSource->set_name("track_event");
   dataSource->set_track_event_config_raw(trackEventConfig.SerializeAsString());
@@ -109,6 +112,7 @@ class G4TracingSessionImpl
     static constexpr int kInvalidFd = -1;
 
     int fd = kInvalidFd;
+    std::size_t bufferSizeMB = 3072;
     std::unique_ptr<perfetto::TracingSession> session;
 };
 
@@ -125,13 +129,12 @@ G4TracingSession::~G4TracingSession()
   this->Stop();
 }
 
-void G4TracingSession::Start(std::string const& filename)
+void G4TracingSession::Start(std::string const& filename, std::size_t bufferSizeMB)
 {
   G4AutoLock lock(&g4TracingSessionMutex);
 
   if (impl_ && impl_->session)
   {
-    perfetto::TrackEvent::Flush();
     impl_->session->StopBlocking();
     if (impl_->fd != G4TracingSessionImpl::kInvalidFd)
     {
@@ -143,6 +146,7 @@ void G4TracingSession::Start(std::string const& filename)
   std::call_once(g4PerfettoInitOnce, InitializePerfetto);
 
   impl_ = std::make_unique<G4TracingSessionImpl>();
+  impl_->bufferSizeMB = bufferSizeMB;
   impl_->fd = OpenTraceFile(filename);
   if (impl_->fd < 0)
   {
@@ -158,7 +162,59 @@ void G4TracingSession::Start(std::string const& filename)
     return;
   }
 
-  session->Setup(ConfigureSession(), impl_->fd);
+  session->Setup(ConfigureSession(bufferSizeMB));
+  session->StartBlocking();
+  impl_->session = std::move(session);
+}
+
+void G4TracingSession::Drain()
+{
+  G4AutoLock lock(&g4TracingSessionMutex);
+
+  if (!impl_ || !impl_->session)
+  {
+    return;
+  }
+
+  // Stop-and-drain the current session, appending collected bytes to the open
+  // file descriptor.  Then immediately restart a fresh session so tracing
+  // continues without interruption.  The fd stays open between drain cycles;
+  // only Stop() closes it.  Concatenated perfetto protobuf files are natively
+  // valid (length-delimited TracePackets); perfetto trace_processor handles
+  // multi-session files transparently.
+  impl_->session->FlushBlocking(5000);
+  impl_->session->StopBlocking();
+
+  auto traceBytes = impl_->session->ReadTraceBlocking();
+  impl_->session.reset();
+
+  if (impl_->fd != G4TracingSessionImpl::kInvalidFd && !traceBytes.empty())
+  {
+    const char* ptr = traceBytes.data();
+    std::size_t remaining = traceBytes.size();
+    while (remaining > 0)
+    {
+#if defined(_WIN32)
+      int written = _write(impl_->fd, ptr, static_cast<unsigned int>(remaining));
+#else
+      ssize_t written = write(impl_->fd, ptr, remaining);
+#endif
+      if (written <= 0) break;
+      ptr += written;
+      remaining -= static_cast<std::size_t>(written);
+    }
+  }
+
+  // Restart tracing immediately.
+  auto session = perfetto::Tracing::NewTrace();
+  if (!session)
+  {
+    // If restart fails, close the file and give up.
+    CloseTraceFile(impl_->fd);
+    impl_.reset();
+    return;
+  }
+  session->Setup(ConfigureSession(impl_->bufferSizeMB));
   session->StartBlocking();
   impl_->session = std::move(session);
 }
@@ -172,12 +228,35 @@ void G4TracingSession::Stop()
     return;
   }
 
-  perfetto::TrackEvent::Flush();
+  // Perfetto SDK known issue (b/162206162): the last trace packet of each
+  // producer thread needs an explicit Flush() to be committed to the SMB,
+  // and a service-level FlushBlocking() to be scraped into the ring buffer
+  // before stopping.  Worker threads call G4TracingSession::Flush() from
+  // BeamOn() to commit their partial chunks; we then wait for the service
+  // to scrape the SMB before calling StopBlocking().
+  impl_->session->FlushBlocking(5000);
   impl_->session->StopBlocking();
 
-  if (impl_->fd != G4TracingSessionImpl::kInvalidFd)
+  // Read all trace data from the in-memory ring buffer and write to file.
+  // ReadTraceBlocking() returns all bytes collected after StopBlocking().
+  auto traceBytes = impl_->session->ReadTraceBlocking();
+  if (impl_->fd != G4TracingSessionImpl::kInvalidFd && !traceBytes.empty())
   {
+    const char* ptr = traceBytes.data();
+    std::size_t remaining = traceBytes.size();
+    while (remaining > 0)
+    {
+#if defined(_WIN32)
+      int written = _write(impl_->fd, ptr, static_cast<unsigned int>(remaining));
+#else
+      ssize_t written = write(impl_->fd, ptr, remaining);
+#endif
+      if (written <= 0) break;
+      ptr += written;
+      remaining -= static_cast<std::size_t>(written);
+    }
     CloseTraceFile(impl_->fd);
+    impl_->fd = G4TracingSessionImpl::kInvalidFd;
   }
 
   impl_.reset();

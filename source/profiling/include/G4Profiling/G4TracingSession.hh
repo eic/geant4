@@ -42,8 +42,9 @@ class G4TracingSession
   public:
     static G4TracingSession& Instance();
 
-    void Start(std::string const& filename);
+    void Start(std::string const& filename, std::size_t bufferSizeMB = 3072);
     void Stop();
+    void Drain();
     void Flush();
     bool IsActive() const;
 
@@ -72,8 +73,9 @@ class G4TracingSession
       return instance;
     }
 
-    void Start(std::string const&) {}
+    void Start(std::string const&, std::size_t = 3072) {}
     void Stop() {}
+    void Drain() {}
     void Flush() {}
     bool IsActive() const { return false; }
     ~G4TracingSession() = default;

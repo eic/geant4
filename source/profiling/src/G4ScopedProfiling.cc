@@ -118,12 +118,22 @@ bool G4ScopedProfiling::Activate(G4ScopedProfilingInput const& input)
     activated = true;
   }
   if (!activated && category_ == g4step_category) {
-    TRACE_EVENT_BEGIN(g4step_category,
-                      perfetto::StaticString{InternString(input.name)},
-                      "display_color", emitColor,
-                      "step_number",   static_cast<std::int32_t>(input.stepNumber),
-                      "pv",            perfetto::StaticString{InternString(input.pv)},
-                      "lv",            perfetto::StaticString{InternString(input.lv)});
+    // Emit lv arg only when it is non-empty (set by kVerbose path building).
+    // At kFine, lv is left empty to reduce trace size.
+    if (input.lv.empty()) {
+      TRACE_EVENT_BEGIN(g4step_category,
+                        perfetto::StaticString{InternString(input.name)},
+                        "display_color", emitColor,
+                        "step_number",   static_cast<std::int32_t>(input.stepNumber),
+                        "pv",            perfetto::StaticString{InternString(input.pv)});
+    } else {
+      TRACE_EVENT_BEGIN(g4step_category,
+                        perfetto::StaticString{InternString(input.name)},
+                        "display_color", emitColor,
+                        "step_number",   static_cast<std::int32_t>(input.stepNumber),
+                        "pv",            perfetto::StaticString{InternString(input.pv)},
+                        "lv",            perfetto::StaticString{InternString(input.lv)});
+    }
     activated = true;
   }
   if (!activated && category_ == g4process_category) {

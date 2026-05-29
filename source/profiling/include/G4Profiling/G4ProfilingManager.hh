@@ -57,6 +57,13 @@ class G4ProfilingManager
     void StopTracing();
     void FlushTracing();
 
+    std::size_t GetBufferSizeMB() const;
+    void SetBufferSizeMB(std::size_t mb);
+
+    int GetFlushEveryNEvents() const;
+    void SetFlushEveryNEvents(int n);
+    void MaybeFlushAfterEvent();
+
     G4ProfilingManager(G4ProfilingManager const&) = delete;
     G4ProfilingManager& operator=(G4ProfilingManager const&) = delete;
 
@@ -67,6 +74,9 @@ class G4ProfilingManager
     std::atomic<int> verbosity_{static_cast<int>(G4ProfilingVerbosity::kCoarse)};
     std::atomic<bool> active_{false};
     std::string outputFileName_;
+    std::atomic<std::size_t> bufferSizeMB_{3072};
+    std::atomic<int> flushEveryNEvents_{0};
+    std::atomic<int> eventCounter_{0};
     std::unique_ptr<G4ProfilingMessenger> messenger_;
 };
 

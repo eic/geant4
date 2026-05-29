@@ -51,6 +51,8 @@ class G4ProfilingMessenger : public G4UImessenger
     G4UIcmdWithAnInteger* verboseCmd_ = nullptr;
     G4UIdirectory* perfettoDirectory_ = nullptr;
     G4UIcmdWithAString* outputFileCmd_ = nullptr;
+    G4UIcmdWithAnInteger* bufferSizeCmd_ = nullptr;
+    G4UIcmdWithAnInteger* flushEventsCmd_ = nullptr;
     G4UIcmdWithoutParameter* startCmd_ = nullptr;
     G4UIcmdWithoutParameter* stopCmd_ = nullptr;
 };

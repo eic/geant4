@@ -74,6 +74,7 @@
 #ifdef GEANT4_USE_PROFILING
 #  include "G4Profiling/G4ProfilingManager.hh"
 #  include "G4Profiling/G4ScopedProfiling.hh"
+#  include "G4Profiling/G4TracingSession.hh"
 #endif
 #include "G4VPhysicalVolume.hh"
 #include "G4VScoreNtupleWriter.hh"
@@ -274,22 +275,32 @@ void G4RunManager::DeleteUserInitializations()
 // --------------------------------------------------------------------
 void G4RunManager::BeamOn(G4int n_event, const char* macroFile, G4int n_select)
 {
+  {
 #ifdef GEANT4_USE_PROFILING
-  G4ScopedProfiling beamOnProfiling({.name="run", .color=0xff455a64u,
-                                     .category="g4run"});
+    G4ScopedProfiling beamOnProfiling({.name="run", .color=0xff455a64u,
+                                       .category="g4run"});
 #endif
 
-  fakeRun = n_event <= 0;
-  G4bool cond = ConfirmBeamOnCondition();
-  if (cond) {
-    numberOfEventToBeProcessed = n_event;
-    numberOfEventProcessed = 0;
-    ConstructScoringWorlds();
-    RunInitialization();
-    DoEventLoop(n_event, macroFile, n_select);
-    RunTermination();
+    fakeRun = n_event <= 0;
+    G4bool cond = ConfirmBeamOnCondition();
+    if (cond) {
+      numberOfEventToBeProcessed = n_event;
+      numberOfEventProcessed = 0;
+      ConstructScoringWorlds();
+      RunInitialization();
+      DoEventLoop(n_event, macroFile, n_select);
+      RunTermination();
+    }
+    fakeRun = false;
   }
-  fakeRun = false;
+  // Perfetto SDK known issue (b/162206162): the last trace packet written by
+  // this thread is only visible if Flush() is called from the same thread
+  // before the session stops.  Worker threads park after BeamOn() returns, so
+  // we must flush here to commit the partial chunk containing the g4run END
+  // event (and any nested g4event/g4track END events) to the shared buffer.
+#ifdef GEANT4_USE_PROFILING
+  G4TracingSession::Instance().Flush();
+#endif
 }
 
 // --------------------------------------------------------------------

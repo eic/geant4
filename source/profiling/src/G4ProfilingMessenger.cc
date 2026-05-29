@@ -42,9 +42,11 @@ G4ProfilingMessenger::G4ProfilingMessenger(G4ProfilingManager* manager)
   verboseCmd_ = new G4UIcmdWithAnInteger("/profiling/verbose", this);
   verboseCmd_->SetGuidance("Set profiling verbosity (cumulative).");
   verboseCmd_->SetGuidance(" 0 : run-level and event-level spans only (kCoarse)");
-  verboseCmd_->SetGuidance(" 1 : adds track-level spans (kNormal)");
-  verboseCmd_->SetGuidance(" 2 : adds step-level spans (kFine)");
-  verboseCmd_->SetGuidance(" 3 : adds process and navigation spans (kVerbose)");
+  verboseCmd_->SetGuidance(" 1 : adds track-level spans with particle name/pdg (kNormal)");
+  verboseCmd_->SetGuidance(" 2 : adds step-level spans with immediate volume name (kFine)");
+  verboseCmd_->SetGuidance("     Note: at kFine, 10 events ≈ 150 MB; enable flushEveryNEvents for long runs.");
+  verboseCmd_->SetGuidance(" 3 : adds process/navigation spans, full pv/lv paths, flow events (kVerbose)");
+  verboseCmd_->SetGuidance("     Note: at kVerbose, 10 events ≈ 1.9 GB; reduce bufferSizeMB + enable drain.");
   verboseCmd_->SetParameterName("level", false);
   verboseCmd_->SetRange("level>=0 && level<=3");
   verboseCmd_->AvailableForStates(G4State_PreInit, G4State_Idle);
@@ -57,6 +59,26 @@ G4ProfilingMessenger::G4ProfilingMessenger(G4ProfilingManager* manager)
   outputFileCmd_->SetGuidance("Use a .pftrace extension for compatibility with ui.perfetto.dev.");
   outputFileCmd_->SetParameterName("filename", false);
   outputFileCmd_->AvailableForStates(G4State_PreInit, G4State_Idle);
+
+  bufferSizeCmd_ = new G4UIcmdWithAnInteger("/profiling/perfetto/bufferSizeMB", this);
+  bufferSizeCmd_->SetGuidance("Set the in-memory ring buffer size in MB (default: 3072 = 3 GB).");
+  bufferSizeCmd_->SetGuidance("Must be large enough to hold all events between drain cycles.");
+  bufferSizeCmd_->SetGuidance("Suggested values by verbosity: kFine+drain=512, kVerbose+drain=2048.");
+  bufferSizeCmd_->SetGuidance("Set before /profiling/perfetto/start.");
+  bufferSizeCmd_->SetParameterName("sizeMB", false);
+  bufferSizeCmd_->SetRange("sizeMB>0");
+  bufferSizeCmd_->AvailableForStates(G4State_PreInit, G4State_Idle);
+
+  flushEventsCmd_ = new G4UIcmdWithAnInteger("/profiling/perfetto/flushEveryNEvents", this);
+  flushEventsCmd_->SetGuidance("Drain ring buffer to disk every N events (0 = disabled, default).");
+  flushEventsCmd_->SetGuidance("Enables long simulations by recycling buffer; trace file grows incrementally.");
+  flushEventsCmd_->SetGuidance("Buffer must hold N events; set bufferSizeMB accordingly:");
+  flushEventsCmd_->SetGuidance("  kFine: ≈20 MB/event → bufferSizeMB = 20*N + margin");
+  flushEventsCmd_->SetGuidance("  kVerbose: ≈190 MB/event → bufferSizeMB = 190*N + margin");
+  flushEventsCmd_->SetGuidance("Spans crossing a drain boundary may appear incomplete (acceptable).");
+  flushEventsCmd_->SetParameterName("N", false);
+  flushEventsCmd_->SetRange("N>=0");
+  flushEventsCmd_->AvailableForStates(G4State_PreInit, G4State_Idle);
 
   startCmd_ = new G4UIcmdWithoutParameter("/profiling/perfetto/start", this);
   startCmd_->SetGuidance("Start the active tracing session.");
@@ -71,6 +93,8 @@ G4ProfilingMessenger::~G4ProfilingMessenger()
 {
   delete stopCmd_;
   delete startCmd_;
+  delete flushEventsCmd_;
+  delete bufferSizeCmd_;
   delete outputFileCmd_;
   delete perfettoDirectory_;
   delete verboseCmd_;
@@ -102,6 +126,14 @@ void G4ProfilingMessenger::SetNewValue(G4UIcommand* command, G4String value)
   {
     manager_->SetOutputFileName(value);
   }
+  else if (command == bufferSizeCmd_)
+  {
+    manager_->SetBufferSizeMB(static_cast<std::size_t>(bufferSizeCmd_->GetNewIntValue(value)));
+  }
+  else if (command == flushEventsCmd_)
+  {
+    manager_->SetFlushEveryNEvents(flushEventsCmd_->GetNewIntValue(value));
+  }
   else if (command == startCmd_)
   {
     manager_->StartTracing();
@@ -122,6 +154,14 @@ G4String G4ProfilingMessenger::GetCurrentValue(G4UIcommand* command)
   if (command == outputFileCmd_)
   {
     return manager_->GetOutputFileName();
+  }
+  if (command == bufferSizeCmd_)
+  {
+    return bufferSizeCmd_->ConvertToString(static_cast<G4int>(manager_->GetBufferSizeMB()));
+  }
+  if (command == flushEventsCmd_)
+  {
+    return flushEventsCmd_->ConvertToString(manager_->GetFlushEveryNEvents());
   }
   return "";
 }

@@ -703,8 +703,10 @@ void G4SteppingManager::InvokeAtRestDoItProcs()
 
         // Now Store the secondaries from ParticleChange to SecondaryList
 #ifdef GEANT4_USE_PROFILING
-        for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
-          G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+        if (G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose) {
+          for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+            G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+        }
 #endif
         fN2ndariesAtRestDoIt += ProcessSecondariesFromParticleChange();
 
@@ -758,8 +760,10 @@ void G4SteppingManager::InvokeAlongStepDoItProcs()
 
     // Now Store the secondaries from ParticleChange to SecondaryList
 #ifdef GEANT4_USE_PROFILING
-    for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
-      G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+    if (G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose) {
+      for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+        G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+    }
 #endif
     fN2ndariesAlongStepDoIt += ProcessSecondariesFromParticleChange();
 
@@ -852,8 +856,10 @@ void G4SteppingManager::InvokePSDIP(size_t np)
 
   // Now Store the secondaries from ParticleChange to SecondaryList
 #ifdef GEANT4_USE_PROFILING
-  for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
-    G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+  if (G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose) {
+    for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+      G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+  }
 #endif
   fN2ndariesPostStepDoIt += ProcessSecondariesFromParticleChange();
 
