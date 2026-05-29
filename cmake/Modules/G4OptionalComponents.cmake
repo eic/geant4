@@ -322,3 +322,41 @@ if(GEANT4_USE_HDF5)
 endif()
 
 geant4_add_feature(GEANT4_USE_HDF5 "Building Geant4 analysis library with HDF5 support")
+
+#-----------------------------------------------------------------------
+# PROFILING
+# ^^^^^^^^^
+# Optional profiling support using perfetto tracing SDK.
+#
+option(GEANT4_USE_PROFILING "Enable Geant4 profiling framework" OFF)
+option(GEANT4_USE_PERFETTO "Use Perfetto tracing backend for profiling" OFF)
+
+if(GEANT4_USE_PERFETTO AND NOT GEANT4_USE_PROFILING)
+  set(GEANT4_USE_PROFILING ON CACHE BOOL "Enable profiling (forced by GEANT4_USE_PERFETTO)" FORCE)
+endif()
+
+if(GEANT4_USE_PERFETTO)
+  if(TARGET Celeritas::perfetto)
+    add_library(G4ExtPerfetto ALIAS Celeritas::perfetto)
+    set(GEANT4_PERFETTO_FOUND TRUE)
+  else()
+    include(FetchContent)
+    FetchContent_Declare(perfetto
+      GIT_REPOSITORY https://android.googlesource.com/platform/external/perfetto
+      GIT_TAG v49.0)
+    FetchContent_MakeAvailable(perfetto)
+    if(NOT TARGET perfetto_sdk)
+      add_library(perfetto_sdk STATIC
+        ${perfetto_SOURCE_DIR}/sdk/perfetto.cc)
+      target_include_directories(perfetto_sdk PUBLIC
+        ${perfetto_SOURCE_DIR}/sdk)
+      set_target_properties(perfetto_sdk PROPERTIES
+        POSITION_INDEPENDENT_CODE ON)
+    endif()
+    add_library(G4ExtPerfetto ALIAS perfetto_sdk)
+    set(GEANT4_PERFETTO_FOUND TRUE)
+  endif()
+endif()
+
+geant4_add_feature(GEANT4_USE_PROFILING "Geant4 profiling framework enabled")
+geant4_add_feature(GEANT4_USE_PERFETTO "Using Perfetto tracing backend")

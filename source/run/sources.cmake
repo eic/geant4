@@ -130,6 +130,10 @@ geant4_module_link_libraries(G4run
     G4volumes
     ${timemory_LIBRARIES})
 
+if(GEANT4_USE_PROFILING)
+  geant4_module_link_libraries(G4run PRIVATE G4profiling)
+endif()
+
 # List any source specific properties here
 if(GEANT4_BUILD_BUILTIN_BACKTRACE)
   geant4_module_compile_definitions(G4run PRIVATE G4BT_DEBUG)
