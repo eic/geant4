@@ -37,6 +37,12 @@
 #include "G4RichTrajectory.hh"
 #include "G4SmoothTrajectory.hh"
 #include "G4ios.hh"
+#ifdef GEANT4_USE_PROFILING
+#  include "G4Profiling/G4ScopedProfiling.hh"
+#endif
+
+#include <cstdint>
+#include <sstream>
 
 //////////////////////////////////////
 G4TrackingManager::G4TrackingManager()
@@ -64,6 +70,15 @@ void G4TrackingManager::ProcessOneTrack(G4Track* apValueG4Track)
 
   fpTrack = apValueG4Track;
   EventIsAborted = false;
+
+#ifdef GEANT4_USE_PROFILING
+  std::ostringstream trackProfileName;
+  trackProfileName << fpTrack->GetDefinition()->GetParticleName()
+                   << " Ek=" << fpTrack->GetKineticEnergy();
+  G4ScopedProfiling trackProfiling({trackProfileName.str(), 0xfff9a825u,
+                                    static_cast<std::uint64_t>(fpTrack->GetTrackID()),
+                                    "g4track"});
+#endif
 
   // Clear secondary particle vector
   //
@@ -122,6 +137,7 @@ void G4TrackingManager::ProcessOneTrack(G4Track* apValueG4Track)
 
     // Track the particle Step-by-Step while it is alive
     //
+    // Optional future profiling hook: individual step spans can be added here.
     while ((fpTrack->GetTrackStatus() == fAlive) || (fpTrack->GetTrackStatus() == fStopButAlive)) {
       fpTrack->IncrementCurrentStepNumber();
       fpSteppingManager->Stepping();

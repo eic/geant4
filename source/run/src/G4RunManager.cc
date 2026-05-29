@@ -71,6 +71,10 @@
 #include "G4UserWorkerThreadInitialization.hh"
 #include "G4VHitsCollection.hh"
 #include "G4VPersistencyManager.hh"
+#ifdef GEANT4_USE_PROFILING
+#  include "G4Profiling/G4ProfilingManager.hh"
+#  include "G4Profiling/G4ScopedProfiling.hh"
+#endif
 #include "G4VPhysicalVolume.hh"
 #include "G4VScoreNtupleWriter.hh"
 #include "G4VScoringMesh.hh"
@@ -84,6 +88,7 @@
 #include "Randomize.hh"
 #include "G4MaterialScanner.hh"
 
+#include <cstdint>
 #include <sstream>
 
 using namespace CLHEP;
@@ -134,6 +139,9 @@ G4RunManager::G4RunManager()
   runManagerType = sequentialRM;
   materialScanner = new G4MaterialScanner();
   G4UImanager::GetUIpointer()->SetAlias("RunMode sequential");
+#ifdef GEANT4_USE_PROFILING
+  G4ProfilingManager::GetInstance();
+#endif
 
 }
 
@@ -186,6 +194,9 @@ G4RunManager::G4RunManager(RMType rmType)
   G4Random::saveFullState(oss);
   randomNumberStatusForThisRun = oss.str();
   randomNumberStatusForThisEvent = oss.str();
+#ifdef GEANT4_USE_PROFILING
+  G4ProfilingManager::GetInstance();
+#endif
 }
 
 // --------------------------------------------------------------------
@@ -263,6 +274,12 @@ void G4RunManager::DeleteUserInitializations()
 // --------------------------------------------------------------------
 void G4RunManager::BeamOn(G4int n_event, const char* macroFile, G4int n_select)
 {
+#ifdef GEANT4_USE_PROFILING
+  G4ScopedProfiling beamOnProfiling({"BeamOn", 0xff455a64u,
+                                     static_cast<std::uint64_t>(n_event),
+                                     "g4run"});
+#endif
+
   fakeRun = n_event <= 0;
   G4bool cond = ConfirmBeamOnCondition();
   if (cond) {
