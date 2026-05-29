@@ -77,3 +77,7 @@ geant4_module_link_libraries(G4tracking
   PRIVATE
     G4detector
     G4graphics_reps)
+
+if(GEANT4_USE_PROFILING)
+  geant4_module_link_libraries(G4tracking PRIVATE G4profiling)
+endif()

@@ -37,6 +37,9 @@
 #include "G4SystemOfUnits.hh"
 #include "G4GeometryTolerance.hh"
 #include "G4VPhysicalVolume.hh"
+#ifdef GEANT4_USE_PROFILING
+#  include "G4Profiling/G4ScopedProfiling.hh"
+#endif
 
 #include "G4VoxelSafety.hh"
 #include "G4SafetyCalculator.hh"
@@ -762,6 +765,12 @@ G4double G4Navigator::ComputeStep( const G4ThreeVector& pGlobalpoint,
   G4double Step = kInfinity;
   G4VPhysicalVolume  *motherPhysical = fHistory.GetTopVolume();
   G4LogicalVolume *motherLogical = motherPhysical->GetLogicalVolume();
+
+#ifdef GEANT4_USE_PROFILING
+  G4ScopedProfiling navProfiling({.name="navigate", .color=0xff7e57c2u,
+                                   .category="g4navigation",
+                                   .pv=motherPhysical->GetName()});
+#endif
 
   // All state relating to exiting normals must be reset
   //

@@ -100,3 +100,7 @@ geant4_module_link_libraries(G4event
     G4materials
     G4heprandom
     G4parameterisation)
+
+if(GEANT4_USE_PROFILING)
+  geant4_module_link_libraries(G4event PRIVATE G4profiling)
+endif()

@@ -45,11 +45,17 @@
 #include "Randomize.hh"
 #include "G4GlobalFastSimulationManager.hh"
 #include "G4AutoLock.hh"
+#ifdef GEANT4_USE_PROFILING
+#  include "G4Profiling/G4ScopedProfiling.hh"
+#  include "G4Profiling/G4ProfilingManager.hh"
+#endif
 
 namespace {
  G4Mutex EventMgrMutex = G4MUTEX_INITIALIZER;
 }
 
+#include <cstdint>
+#include <string>
 #include <unordered_set>
 
 G4ThreadLocal G4EventManager* G4EventManager::fpEventManager = nullptr;
@@ -101,6 +107,11 @@ void G4EventManager::DoProcessing(G4Event* anEvent,
   }
   currentEvent = anEvent;
   if(!subEventParaWorker) stateManager->SetNewState(G4State_EventProc);
+#ifdef GEANT4_USE_PROFILING
+  G4ScopedProfiling eventProfiling({.name="event", .color=0xff00897bu,
+                                    .category="g4event",
+                                    .eventNumber=anEvent->GetEventID()});
+#endif
   if(storetRandomNumberStatusToG4Event > 1)
   {
     std::ostringstream oss;
@@ -467,6 +478,9 @@ void G4EventManager::ProcessOneEvent(G4Event* anEvent)
 {
   trackIDCounter = 0;
   DoProcessing(anEvent);
+#ifdef GEANT4_USE_PROFILING
+  G4ProfilingManager::GetInstance().MaybeFlushAfterEvent();
+#endif
 }
 
 void G4EventManager::ProcessOneEvent(G4TrackVector* trackVector,

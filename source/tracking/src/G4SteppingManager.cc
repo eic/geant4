@@ -44,6 +44,9 @@
 #include "G4UImanager.hh"
 #include "G4UserLimits.hh"
 #include "G4VSensitiveDetector.hh"  // Include from 'hits/digi'
+#ifdef GEANT4_USE_PROFILING
+#  include "G4Profiling/G4ScopedProfiling.hh"
+#endif
 
 // #define debug
 
@@ -687,6 +690,11 @@ void G4SteppingManager::InvokeAtRestDoItProcs()
       //
       if ((*fSelectedAtRestDoItVector)[MAXofAtRestLoops - np - 1] != InActivated) {
         fCurrentProcess = (*fAtRestDoItVector)[(G4int)np];
+#ifdef GEANT4_USE_PROFILING
+        G4ScopedProfiling processProfiling({.name=fCurrentProcess->GetProcessName(),
+                                            .color=0xff80cbc4u, .category="g4process",
+                                            .pv=fStep->GetPreStepPoint()->GetPhysicalVolume()->GetName()});
+#endif
         fParticleChange = fCurrentProcess->AtRestDoIt(*fTrack, *fStep);
 
         // Update Step
@@ -694,6 +702,12 @@ void G4SteppingManager::InvokeAtRestDoItProcs()
         fParticleChange->UpdateStepForAtRest(fStep);
 
         // Now Store the secondaries from ParticleChange to SecondaryList
+#ifdef GEANT4_USE_PROFILING
+        if (G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose) {
+          for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+            G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+        }
+#endif
         fN2ndariesAtRestDoIt += ProcessSecondariesFromParticleChange();
 
         // clear ParticleChange
@@ -730,6 +744,11 @@ void G4SteppingManager::InvokeAlongStepDoItProcs()
     if (fCurrentProcess == nullptr) continue;
     // NULL means the process is inactivated by a user on fly.
 
+#ifdef GEANT4_USE_PROFILING
+    G4ScopedProfiling processProfiling({.name=fCurrentProcess->GetProcessName(),
+                                        .color=0xff80cbc4u, .category="g4process",
+                                        .pv=fStep->GetPreStepPoint()->GetPhysicalVolume()->GetName()});
+#endif
     fParticleChange = fCurrentProcess->AlongStepDoIt(*fTrack, *fStep);
 
     // Update the PostStepPoint of Step according to ParticleChange
@@ -740,6 +759,12 @@ void G4SteppingManager::InvokeAlongStepDoItProcs()
 #endif
 
     // Now Store the secondaries from ParticleChange to SecondaryList
+#ifdef GEANT4_USE_PROFILING
+    if (G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose) {
+      for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+        G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+    }
+#endif
     fN2ndariesAlongStepDoIt += ProcessSecondariesFromParticleChange();
 
     // Set the track status according to what the process defined
@@ -809,6 +834,11 @@ void G4SteppingManager::InvokePSDIP(size_t np)
 ////////////////////////////////////////////////////////
 {
   fCurrentProcess = (*fPostStepDoItVector)[(G4int)np];
+#ifdef GEANT4_USE_PROFILING
+  G4ScopedProfiling processProfiling({.name=fCurrentProcess->GetProcessName(),
+                                      .color=0xff80cbc4u, .category="g4process",
+                                      .pv=fStep->GetPreStepPoint()->GetPhysicalVolume()->GetName()});
+#endif
   fParticleChange = fCurrentProcess->PostStepDoIt(*fTrack, *fStep);
 
   // Update PostStepPoint of Step according to ParticleChange
@@ -825,6 +855,12 @@ void G4SteppingManager::InvokePSDIP(size_t np)
   fStep->GetPostStepPoint()->SetSafety(CalculateSafety());
 
   // Now Store the secondaries from ParticleChange to SecondaryList
+#ifdef GEANT4_USE_PROFILING
+  if (G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose) {
+    for (G4int si = 0; si < fParticleChange->GetNumberOfSecondaries(); ++si)
+      G4ScopedProfiling::EmitFlowSource(fParticleChange->GetSecondary(si));
+  }
+#endif
   fN2ndariesPostStepDoIt += ProcessSecondariesFromParticleChange();
 
   // Set the track status according to what the process defined
