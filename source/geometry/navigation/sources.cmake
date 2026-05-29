@@ -82,3 +82,7 @@ geant4_add_module(G4navigation
 geant4_module_link_libraries(G4navigation
   PUBLIC G4geometrymng G4magneticfield G4graphics_reps G4globman G4intercoms G4hepgeometry
   PRIVATE G4volumes G4materials)
+
+if(GEANT4_USE_PROFILING)
+  geant4_module_link_libraries(G4navigation PRIVATE G4profiling)
+endif()

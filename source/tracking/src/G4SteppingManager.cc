@@ -44,6 +44,9 @@
 #include "G4UImanager.hh"
 #include "G4UserLimits.hh"
 #include "G4VSensitiveDetector.hh"  // Include from 'hits/digi'
+#ifdef GEANT4_USE_PROFILING
+#  include "G4Profiling/G4ScopedProfiling.hh"
+#endif
 
 // #define debug
 
@@ -687,6 +690,11 @@ void G4SteppingManager::InvokeAtRestDoItProcs()
       //
       if ((*fSelectedAtRestDoItVector)[MAXofAtRestLoops - np - 1] != InActivated) {
         fCurrentProcess = (*fAtRestDoItVector)[(G4int)np];
+#ifdef GEANT4_USE_PROFILING
+        G4ScopedProfiling processProfiling({.name=fCurrentProcess->GetProcessName(),
+                                            .color=0xff80cbc4u, .category="g4process",
+                                            .pv=fStep->GetPreStepPoint()->GetPhysicalVolume()->GetName()});
+#endif
         fParticleChange = fCurrentProcess->AtRestDoIt(*fTrack, *fStep);
 
         // Update Step
@@ -730,6 +738,11 @@ void G4SteppingManager::InvokeAlongStepDoItProcs()
     if (fCurrentProcess == nullptr) continue;
     // NULL means the process is inactivated by a user on fly.
 
+#ifdef GEANT4_USE_PROFILING
+    G4ScopedProfiling processProfiling({.name=fCurrentProcess->GetProcessName(),
+                                        .color=0xff80cbc4u, .category="g4process",
+                                        .pv=fStep->GetPreStepPoint()->GetPhysicalVolume()->GetName()});
+#endif
     fParticleChange = fCurrentProcess->AlongStepDoIt(*fTrack, *fStep);
 
     // Update the PostStepPoint of Step according to ParticleChange
@@ -809,6 +822,11 @@ void G4SteppingManager::InvokePSDIP(size_t np)
 ////////////////////////////////////////////////////////
 {
   fCurrentProcess = (*fPostStepDoItVector)[(G4int)np];
+#ifdef GEANT4_USE_PROFILING
+  G4ScopedProfiling processProfiling({.name=fCurrentProcess->GetProcessName(),
+                                      .color=0xff80cbc4u, .category="g4process",
+                                      .pv=fStep->GetPreStepPoint()->GetPhysicalVolume()->GetName()});
+#endif
   fParticleChange = fCurrentProcess->PostStepDoIt(*fTrack, *fStep);
 
   // Update PostStepPoint of Step according to ParticleChange

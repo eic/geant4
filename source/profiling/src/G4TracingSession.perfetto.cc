@@ -60,9 +60,13 @@ perfetto::TraceConfig ConfigureSession()
   trackEventConfig.add_enabled_categories(G4Profiling::detail::g4navigation_category);
 
   perfetto::TraceConfig config;
-  // 8 MB ring buffer is a reasonable default for moderate-length runs.
-  // Increase for long runs or high-verbosity profiles to avoid buffer wrap.
-  config.add_buffers()->set_size_kb(8 * 1024);
+  // Use a large staging buffer with write_into_file to stream events
+  // continuously to disk. The 512 MB staging buffer provides headroom for
+  // step-level multi-threaded traces; periodic flush avoids ring-buffer wraps.
+  config.add_buffers()->set_size_kb(512 * 1024);
+  config.set_write_into_file(true);
+  config.set_file_write_period_ms(250);
+  config.set_flush_period_ms(250);
   auto* dataSource = config.add_data_sources()->mutable_config();
   dataSource->set_name("track_event");
   dataSource->set_track_event_config_raw(trackEventConfig.SerializeAsString());
@@ -73,6 +77,9 @@ void InitializePerfetto()
 {
   perfetto::TracingInitArgs args;
   args.backends |= perfetto::kInProcessBackend;
+  // Increase the shared memory buffer per producer to reduce packet loss
+  // during high-frequency step-level tracing.
+  args.shmem_size_hint_kb = 32 * 1024;
   perfetto::Tracing::Initialize(args);
   perfetto::TrackEvent::Register();
 }

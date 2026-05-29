@@ -30,6 +30,7 @@
 #include "G4Profiling/G4ProfilingManager.hh"
 
 #include <perfetto.h>
+#include <unordered_set>
 
 #include "detail/G4ProfilingCategories.perfetto.hh"
 
@@ -37,6 +38,14 @@ PERFETTO_TRACK_EVENT_STATIC_STORAGE();
 
 namespace
 {
+// Return a stable const char* for s that persists for the thread lifetime,
+// allowing perfetto::StaticString (no per-event copy) instead of DynamicString.
+const char* InternString(std::string const& s)
+{
+  thread_local std::unordered_set<std::string> pool;
+  return pool.emplace(s).first->c_str();
+}
+
 char const* GetPerfettoCategory(std::string const& category)
 {
   using namespace G4Profiling::detail;
@@ -83,29 +92,54 @@ bool G4ScopedProfiling::Activate(G4ScopedProfilingInput const& input)
   using namespace G4Profiling::detail;
   bool activated = false;
 
-  // Begin a perfetto track event for the matching category.
-  // The "track_id" argument carries event-specific payload (e.g., event number,
-  // track ID) and "display_color" carries an ARGB color for the trace viewer.
-#define G4_TRACE_EVENT_BEGIN_IF(category_name)                                 \
-  if (!activated && category_ == category_name)                                \
-  {                                                                            \
-    TRACE_EVENT_BEGIN(category_name,                                           \
-                      perfetto::DynamicString{input.name},                     \
-                      "track_id",                                              \
-                      static_cast<std::uint64_t>(input.payload),               \
-                      "display_color",                                         \
-                      static_cast<std::uint32_t>(input.color));                \
-    activated = true;                                                          \
+  // Begin a perfetto track event with category-specific debug arguments.
+  // display_color carries an ARGB color for the trace viewer.
+  auto emitColor = static_cast<std::uint32_t>(input.color);
+
+  if (!activated && category_ == g4run_category) {
+    TRACE_EVENT_BEGIN(g4run_category,
+                      perfetto::DynamicString{input.name},
+                      "display_color", emitColor);
+    activated = true;
   }
-
-  G4_TRACE_EVENT_BEGIN_IF(g4run_category)
-  G4_TRACE_EVENT_BEGIN_IF(g4event_category)
-  G4_TRACE_EVENT_BEGIN_IF(g4track_category)
-  G4_TRACE_EVENT_BEGIN_IF(g4step_category)
-  G4_TRACE_EVENT_BEGIN_IF(g4process_category)
-  G4_TRACE_EVENT_BEGIN_IF(g4navigation_category)
-
-#undef G4_TRACE_EVENT_BEGIN_IF
+  if (!activated && category_ == g4event_category) {
+    TRACE_EVENT_BEGIN(g4event_category,
+                      perfetto::DynamicString{input.name},
+                      "display_color", emitColor,
+                      "event_number", static_cast<std::int32_t>(input.eventNumber));
+    activated = true;
+  }
+  if (!activated && category_ == g4track_category) {
+    TRACE_EVENT_BEGIN(g4track_category,
+                      perfetto::DynamicString{input.name},
+                      "display_color", emitColor,
+                      "track_id",      static_cast<std::int32_t>(input.trackID),
+                      "pdg_id",        static_cast<std::int32_t>(input.pdgID));
+    activated = true;
+  }
+  if (!activated && category_ == g4step_category) {
+    TRACE_EVENT_BEGIN(g4step_category,
+                      perfetto::StaticString{InternString(input.name)},
+                      "display_color", emitColor,
+                      "step_number",   static_cast<std::int32_t>(input.stepNumber),
+                      "pv",            perfetto::StaticString{InternString(input.pv)},
+                      "lv",            perfetto::StaticString{InternString(input.lv)});
+    activated = true;
+  }
+  if (!activated && category_ == g4process_category) {
+    TRACE_EVENT_BEGIN(g4process_category,
+                      perfetto::DynamicString{input.name},
+                      "display_color", emitColor,
+                      "pv",            perfetto::StaticString{InternString(input.pv)});
+    activated = true;
+  }
+  if (!activated && category_ == g4navigation_category) {
+    TRACE_EVENT_BEGIN(g4navigation_category,
+                      perfetto::DynamicString{input.name},
+                      "display_color", emitColor,
+                      "pv",            perfetto::StaticString{InternString(input.pv)});
+    activated = true;
+  }
 
   return activated;
 }

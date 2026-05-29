@@ -42,7 +42,6 @@
 #endif
 
 #include <cstdint>
-#include <sstream>
 
 //////////////////////////////////////
 G4TrackingManager::G4TrackingManager()
@@ -72,12 +71,11 @@ void G4TrackingManager::ProcessOneTrack(G4Track* apValueG4Track)
   EventIsAborted = false;
 
 #ifdef GEANT4_USE_PROFILING
-  std::ostringstream trackProfileName;
-  trackProfileName << fpTrack->GetDefinition()->GetParticleName()
-                   << " Ek=" << fpTrack->GetKineticEnergy();
-  G4ScopedProfiling trackProfiling({trackProfileName.str(), 0xfff9a825u,
-                                    static_cast<std::uint64_t>(fpTrack->GetTrackID()),
-                                    "g4track"});
+  G4ScopedProfiling trackProfiling({.name=fpTrack->GetDefinition()->GetParticleName(),
+                                    .color=0xfff9a825u,
+                                    .category="g4track",
+                                    .trackID=fpTrack->GetTrackID(),
+                                    .pdgID=fpTrack->GetDefinition()->GetPDGEncoding()});
 #endif
 
   // Clear secondary particle vector
@@ -137,9 +135,65 @@ void G4TrackingManager::ProcessOneTrack(G4Track* apValueG4Track)
 
     // Track the particle Step-by-Step while it is alive
     //
-    // Optional future profiling hook: individual step spans can be added here.
     while ((fpTrack->GetTrackStatus() == fAlive) || (fpTrack->GetTrackStatus() == fStopButAlive)) {
       fpTrack->IncrementCurrentStepNumber();
+#ifdef GEANT4_USE_PROFILING
+      std::string pvPath, lvPath, spanName;
+      if (G4ScopedProfiling::enabled()) {
+        if (auto* touchable = fpTrack->GetTouchable()) {
+          if (G4ScopedProfiling::verbosity() >= G4ProfilingVerbosity::kVerbose) {
+            // kVerbose: build full root-to-leaf path strings for pv and lv args,
+            // then derive the short subdetector label from pvPath.
+            for (G4int i = touchable->GetHistoryDepth(); i >= 0; --i) {
+              auto* vol = touchable->GetVolume(i);
+              pvPath += '/'; pvPath += vol->GetName();
+              lvPath += '/'; lvPath += vol->GetLogicalVolume()->GetName();
+            }
+            auto excl = pvPath.find('!');
+            if (excl != std::string::npos) {
+              // Subdetector label: text after first '!' up to next '_' or '/'
+              auto start = excl + 1;
+              auto us  = pvPath.find('_', start);
+              auto end = (us != std::string::npos) ? us : pvPath.find('/', start);
+              spanName = pvPath.substr(start, end == std::string::npos ? end : end - start);
+            } else {
+              // No '!': use leaf volume name up to first '_' (same as kFine fallback)
+              auto const& leaf = touchable->GetVolume(0)->GetName();
+              auto us = leaf.find('_');
+              spanName = leaf.substr(0, us);
+            }
+          } else {
+            // kFine: scan volume names for the '!' subdetector marker without
+            // building the concatenated full path — O(depth) scans, no allocs.
+            for (G4int i = touchable->GetHistoryDepth(); i >= 0; --i) {
+              auto const& volName = touchable->GetVolume(i)->GetName();
+              auto excl = volName.find('!');
+              if (excl != std::string::npos) {
+                auto us = volName.find('_', excl + 1);
+                spanName = volName.substr(excl + 1,
+                               us == std::string::npos ? std::string::npos
+                                                       : us - (excl + 1));
+                break;
+              }
+            }
+            // Fallback (no '!'): leaf volume name up to first '_'.
+            if (spanName.empty()) {
+              auto const& leaf = touchable->GetVolume(0)->GetName();
+              auto us = leaf.find('_');
+              spanName = leaf.substr(0, us);
+            }
+            // Store only the immediate (leaf) physical volume name, not the full path.
+            pvPath = touchable->GetVolume(0)->GetName();
+            // lvPath left empty; lv arg is omitted in G4ScopedProfiling::Activate().
+          }
+        }
+      }
+      G4ScopedProfiling stepProfiling({.name=std::move(spanName), .color=0xffe53935u,
+                                       .category="g4step",
+                                       .stepNumber=fpTrack->GetCurrentStepNumber(),
+                                       .pv=std::move(pvPath),
+                                       .lv=std::move(lvPath)});
+#endif
       fpSteppingManager->Stepping();
 #ifdef G4_STORE_TRAJECTORY
       if (StoreTrajectory != 0) {

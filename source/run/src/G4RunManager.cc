@@ -275,9 +275,8 @@ void G4RunManager::DeleteUserInitializations()
 void G4RunManager::BeamOn(G4int n_event, const char* macroFile, G4int n_select)
 {
 #ifdef GEANT4_USE_PROFILING
-  G4ScopedProfiling beamOnProfiling({"BeamOn", 0xff455a64u,
-                                     static_cast<std::uint64_t>(n_event),
-                                     "g4run"});
+  G4ScopedProfiling beamOnProfiling({.name="run", .color=0xff455a64u,
+                                     .category="g4run"});
 #endif
 
   fakeRun = n_event <= 0;

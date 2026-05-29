@@ -51,8 +51,17 @@ struct G4ScopedProfilingInput
 {
   std::string name;
   std::uint32_t color = 0;
-  std::uint64_t payload = 0;
   std::string category;
+  // g4event
+  std::int32_t eventNumber = -1;
+  // g4track
+  std::int32_t trackID = -1;
+  std::int32_t pdgID = 0;  // PDG encoding (int); more efficient than particle name string
+  // g4step
+  std::int32_t stepNumber = -1;
+  // g4step, g4process, g4navigation
+  std::string pv;  // full physical volume path (slash-separated PV names root→leaf)
+  std::string lv;  // full logical volume path  (slash-separated LV names root→leaf)
 };
 
 class G4ScopedProfiling
@@ -102,8 +111,17 @@ struct G4ScopedProfilingInput
 {
   const char* name = "";
   unsigned int color = 0;
-  unsigned long long payload = 0;
   const char* category = "";
+  // g4event
+  int eventNumber = -1;
+  // g4track
+  int trackID = -1;
+  int pdgID = 0;
+  // g4step
+  int stepNumber = -1;
+  // g4step, g4process, g4navigation
+  const char* pv = "";  // full physical volume path (slash-separated PV names root→leaf)
+  const char* lv = "";  // full logical volume path  (slash-separated LV names root→leaf)
 };
 
 class G4ScopedProfiling

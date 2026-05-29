@@ -107,11 +107,9 @@ void G4EventManager::DoProcessing(G4Event* anEvent,
   currentEvent = anEvent;
   if(!subEventParaWorker) stateManager->SetNewState(G4State_EventProc);
 #ifdef GEANT4_USE_PROFILING
-  std::string eventProfileName{"Event "};
-  eventProfileName += std::to_string(anEvent->GetEventID());
-  G4ScopedProfiling eventProfiling({eventProfileName, 0xff00897bu,
-                                    static_cast<std::uint64_t>(anEvent->GetEventID()),
-                                    "g4event"});
+  G4ScopedProfiling eventProfiling({.name="event", .color=0xff00897bu,
+                                    .category="g4event",
+                                    .eventNumber=anEvent->GetEventID()});
 #endif
   if(storetRandomNumberStatusToG4Event > 1)
   {
